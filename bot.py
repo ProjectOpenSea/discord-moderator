@@ -4,7 +4,7 @@ from asyncio.tasks import Task
 import os
 import shlex
 from datetime import timedelta
-from typing import List, NoReturn, Tuple, cast
+from typing import List, NoReturn, Optional, cast
 
 import discord
 from discord.abc import Messageable
@@ -17,7 +17,16 @@ CONFIRMATION = 'iknowwhatiamdoing'
 
 client = discord.Client()
 
-automessages: List[Tuple[timedelta, str, Task[NoReturn]]] = []
+
+class AutoMessage:
+    def __init__(self, content: str, *, interval: Optional[timedelta]=None, keywords: Optional[List[str]]=None, task: Optional[Task[NoReturn]]=None):
+        self.content = content
+        self.interval = interval
+        self.keywords = keywords
+        self.task = task
+
+
+auto_messages: List[AutoMessage] = []
 
 
 def is_admin(member: Member) -> bool:
@@ -85,7 +94,7 @@ async def on_message(message: Message) -> None:
                                 await cast(Messageable, channel).send(content)
                         loop = asyncio.get_event_loop()
                         task = loop.create_task(run())
-                        automessages.append((tdelta, content, task))
+                        auto_messages.append(AutoMessage(content, interval=tdelta, task=task))
                     return
             await message.channel.send(f'No such channel found: {channel_name}')
 
@@ -95,11 +104,12 @@ async def on_message(message: Message) -> None:
             args = vars(parser.parse_args(arguments))
             delete_id = args["delete"]
             if delete_id is not None:
-                _, _, task = automessages.pop(delete_id)
-                task.cancel()
+                auto_message = auto_messages.pop(delete_id)
+                if auto_message.task:
+                    auto_message.task.cancel()
                 await message.channel.send(f'Deleted message ({delete_id}).')
             else:
-                list_str = "\n".join(f"({i}) [{tdelta}]: {content}" for i, (tdelta, content, _) in enumerate(automessages))
+                list_str = "\n".join(f"({i}) [{am.interval or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
                 await message.channel.send(f"Currently stored messages:\n{list_str}")
 
         else:
