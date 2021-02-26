@@ -20,7 +20,8 @@ client = discord.Client()
 
 
 class AutoMessage:
-    def __init__(self, content: str, *, interval: Optional[timedelta]=None, keywords: Optional[Set[str]]=None, task: Optional[Task[NoReturn]]=None):
+    def __init__(self, *, channel: Messageable, content: str, interval: Optional[timedelta]=None, keywords: Optional[Set[str]]=None, task: Optional[Task[NoReturn]]=None):
+        self.channel = channel
         self.content = content
         self.interval = interval
         self.keywords = keywords
@@ -58,7 +59,7 @@ async def on_message(message: Message) -> None:
     ):
         for auto_message in auto_messages:
             if auto_message.keywords and any(re.search(f"\\b{keyword}\\b", message.content) for keyword in auto_message.keywords):
-                await message.channel.send(auto_message.content)
+                await auto_message.channel.send(auto_message.content)
         return
 
     try:
@@ -98,25 +99,29 @@ async def on_message(message: Message) -> None:
             keywords: Optional[Set[str]] = args["keywords"] and set(args["keywords"].split(","))
             tdelta = timedelta(seconds=args["seconds"], minutes=args["minutes"], hours=args["hours"], days=args["days"])
             duration = tdelta.total_seconds()
+            channel = None
+            for c in guild.channels:
+                if c.name == channel_name:
+                    channel = cast(Messageable, c)
+            if not channel:
+                await message.channel.send(f'No such channel found: {channel_name}')
+                return
             if keywords:
-                auto_messages.append(AutoMessage(content, keywords=keywords))
+                auto_messages.append(AutoMessage(channel=channel, content=content, keywords=keywords))
                 await message.channel.send(f'Message set to automatically respond to these keywords: {", ".join(keywords)}')
                 return
-            for channel in guild.channels:
-                if channel.name == channel_name:
-                    await cast(Messageable, channel).send(content)
-                    await message.channel.send(f'Sent message to {channel_name}.')
-                    if duration > 0:
-                        async def run():
-                            while True:
-                                await asyncio.sleep(duration)
-                                await cast(Messageable, channel).send(content)
-                        loop = asyncio.get_event_loop()
-                        task = loop.create_task(run())
-                        auto_messages.append(AutoMessage(content, interval=tdelta, task=task))
-                        await message.channel.send(f'Will also send message to {channel_name} every {tdelta}.')
-                    return
-            await message.channel.send(f'No such channel found: {channel_name}')
+            await channel.send(content)
+            await message.channel.send(f'Sent message to {channel_name}.')
+            if duration > 0:
+                async def run():
+                    while True:
+                        await asyncio.sleep(duration)
+                        if channel:
+                            await channel.send(content)
+                loop = asyncio.get_event_loop()
+                task = loop.create_task(run())
+                auto_messages.append(AutoMessage(channel=channel, content=content, interval=tdelta, task=task))
+                await message.channel.send(f'Will also send message to {channel_name} every {tdelta}.')
 
         if command == '!manage-messages':
             parser = argparse.ArgumentParser(prog="!manage-messages", description='Manage automatic messages.', add_help=False)
