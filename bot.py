@@ -47,8 +47,8 @@ async def on_message(message: Message) -> None:
             parser = argparse.ArgumentParser(description='Ban all users matching a given name.')
             parser.add_argument('name', help='the name to match')
             parser.add_argument(f"--{CONFIRMATION}", action="store_true", help='actually execute the bans')
-            args = parser.parse_args(arguments)
-            matched_members = [m for m in guild.members if m.name == args.name]
+            args = vars(parser.parse_args(arguments))
+            matched_members = [m for m in guild.members if m.name == args["name"]]
             if args[CONFIRMATION]:
                 await message.channel.send(f'Banning {len(matched_members)} user(s)...')
                 await asyncio.gather(*[guild.ban(m, delete_message_days=7) for m in matched_members])
@@ -58,8 +58,8 @@ async def on_message(message: Message) -> None:
 
         if command == '!auto-message':
             pass
-    except:
-        pass
+    except Exception as error:
+        print(error)
 
 
 client.run(BOT_TOKEN)
