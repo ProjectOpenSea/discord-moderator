@@ -61,11 +61,15 @@ async def on_message(message: Message) -> None:
                 await message.channel.send(auto_message.content)
         return
 
-    [command, *arguments] = shlex.split(message.content.strip())
+    try:
+        [command, *arguments] = shlex.split(message.content.strip())
+    except ValueError:
+        [command, *arguments] = message.content.strip().split()
 
+    parser = None
     try:
         if command == '!ban-all':
-            parser = argparse.ArgumentParser(prog="!ban-all", description='Ban all users matching a given name.')
+            parser = argparse.ArgumentParser(prog="!ban-all", description='Ban all users matching a given name.', add_help=False)
             parser.add_argument('name', help='the name to match')
             parser.add_argument(f"--{CONFIRMATION}", action="store_true", help='actually execute the bans')
             args = vars(parser.parse_args(arguments))
@@ -80,7 +84,7 @@ async def on_message(message: Message) -> None:
                 await message.channel.send(f'Would ban {len(matched_members)} user(s).')
 
         if command == '!message':
-            parser = argparse.ArgumentParser(prog="!message", description='Automatically send messages.')
+            parser = argparse.ArgumentParser(prog="!message", description='Automatically send messages.', add_help=False)
             parser.add_argument('message', nargs="+", help='the content of the message')
             parser.add_argument('--channel', required=True, help='the channel into which the message will be posted')
             parser.add_argument('--keywords', help='comma-separated list of keywords to respond to')
@@ -110,12 +114,12 @@ async def on_message(message: Message) -> None:
                         loop = asyncio.get_event_loop()
                         task = loop.create_task(run())
                         auto_messages.append(AutoMessage(content, interval=tdelta, task=task))
-                        await message.channel.send(f'Will send message to {channel_name} every {tdelta}.')
+                        await message.channel.send(f'Will also send message to {channel_name} every {tdelta}.')
                     return
             await message.channel.send(f'No such channel found: {channel_name}')
 
         if command == '!manage-messages':
-            parser = argparse.ArgumentParser(prog="!manage-messages", description='Manage automatic messages.')
+            parser = argparse.ArgumentParser(prog="!manage-messages", description='Manage automatic messages.', add_help=False)
             parser.add_argument('--delete', type=int, help='the content of the message')
             args = vars(parser.parse_args(arguments))
             delete_id = args["delete"]
@@ -135,6 +139,8 @@ async def on_message(message: Message) -> None:
         print(error)
         await message.channel.send(f'Error: {error}')
     except:
+        if parser:
+            await message.channel.send(parser.format_help())
         pass
 
 
