@@ -445,6 +445,3 @@ class PermissionOverwrite:
     
     def __iter__(self):
         ...
-    
-
-

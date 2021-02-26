@@ -351,4 +351,3 @@ def escape_mentions(text):
         The text with the mentions removed.
     """
     ...
-

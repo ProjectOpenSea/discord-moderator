@@ -702,6 +702,3 @@ class User(BaseUser, discord.abc.Messageable):
             The profile of the user.
         """
         ...
-    
-
-

@@ -29,7 +29,7 @@ class flag_value:
     def __init__(self, func) -> None:
         ...
     
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner) -> bool:
         ...
     
     def __set__(self, instance, value):
@@ -808,6 +808,3 @@ class MemberCacheFlags(BaseFlags):
             The resulting member cache flags.
         """
         ...
-    
-
-

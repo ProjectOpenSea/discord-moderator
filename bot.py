@@ -2,6 +2,8 @@ import asyncio
 import os
 
 import discord
+from discord.member import Member
+from discord.message import Message
 
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -10,11 +12,11 @@ CONFIRMATION = 'iknowwhatiamdoing'
 client = discord.Client()
 
 
-def is_admin(member):
+def is_admin(member: Member):
     return any(role.permissions.administrator for role in member.roles)
 
 
-def parse(message):
+def parse(message: Message):
     words = message.content.strip().split()
     return words[0], words[1:]
 
@@ -25,11 +27,12 @@ async def on_ready():
 
 
 @client.event
-async def on_message(message):
+async def on_message(message: Message):
     guild = message.guild
     member = message.author
     if (
-        not isinstance(member, discord.Member)
+        not guild
+        or not isinstance(member, Member)
         or not is_admin(member)
         or not message.content
         or member == client.user
