@@ -131,7 +131,7 @@ async def on_message(message: Message) -> None:
             is_list = args["list"]
             delete_id = args["delete"]
             if is_list:
-                list_str = "\n".join(f"({i}) [every {am.interval or 'n/a'}] [keywords: {am.keywords or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
+                list_str = "\n".join(f"({i}) #{am.channel} [every {am.interval or 'n/a'}] [keywords: {am.keywords or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
                 await message.channel.send(f"Currently stored messages:\n{list_str}")
                 return
             if delete_id is not None:
