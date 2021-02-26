@@ -120,17 +120,22 @@ async def on_message(message: Message) -> None:
 
         if command == '!manage-messages':
             parser = argparse.ArgumentParser(prog="!manage-messages", description='Manage automatic messages.', add_help=False)
+            parser.add_argument('--list', action="store_true", help='list all messages')
             parser.add_argument('--delete', type=int, help='the content of the message')
             args = vars(parser.parse_args(arguments))
+            is_list = args["list"]
             delete_id = args["delete"]
+            if is_list:
+                list_str = "\n".join(f"({i}) [every {am.interval or 'n/a'}] [keywords: {am.keywords or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
+                await message.channel.send(f"Currently stored messages:\n{list_str}")
+                return
             if delete_id is not None:
                 auto_message = auto_messages.pop(delete_id)
                 if auto_message.task:
                     auto_message.task.cancel()
                 await message.channel.send(f'Deleted message ({delete_id}).')
-            else:
-                list_str = "\n".join(f"({i}) [every {am.interval or 'n/a'}] [keywords: {am.keywords or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
-                await message.channel.send(f"Currently stored messages:\n{list_str}")
+                return
+            await message.channel.send(parser.format_help())
 
         else:
             await message.channel.send(f'Unrecognized command: {command}')
