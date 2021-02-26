@@ -4,7 +4,7 @@ from asyncio.tasks import Task
 import os
 import shlex
 from datetime import timedelta
-from typing import Dict, NoReturn, cast
+from typing import List, NoReturn, Tuple, cast
 
 import discord
 from discord.abc import Messageable
@@ -17,7 +17,7 @@ CONFIRMATION = 'iknowwhatiamdoing'
 
 client = discord.Client()
 
-automessages: Dict[str, Task[NoReturn]] = {}
+automessages: List[Tuple[timedelta, str, Task[NoReturn]]] = []
 
 
 def is_admin(member: Member) -> bool:
@@ -73,7 +73,8 @@ async def on_message(message: Message) -> None:
             args = vars(parser.parse_args(arguments))
             channel_name: str = args["channel"]
             content: str = " ".join(args["message"])
-            duration = timedelta(seconds=args["seconds"], minutes=args["minutes"], hours=args["hours"], days=args["days"]).total_seconds()
+            tdelta = timedelta(seconds=args["seconds"], minutes=args["minutes"], hours=args["hours"], days=args["days"])
+            duration = tdelta.total_seconds()
             for channel in guild.channels:
                 if channel.name == channel_name:
                     await cast(Messageable, channel).send(content)
@@ -84,7 +85,7 @@ async def on_message(message: Message) -> None:
                                 await cast(Messageable, channel).send(content)
                         loop = asyncio.get_event_loop()
                         task = loop.create_task(run())
-                        automessages[content] = task
+                        automessages.append((tdelta, content, task))
                     return
             await message.channel.send(f'No such channel found: {channel_name}')
 
@@ -94,10 +95,12 @@ async def on_message(message: Message) -> None:
             args = vars(parser.parse_args(arguments))
             delete_id = args["delete"]
             if delete_id is not None:
-                automessages.pop(list(automessages)[delete_id]).cancel()
+                _, _, task = automessages.pop(delete_id)
+                task.cancel()
+                await message.channel.send(f'Deleted message ({delete_id}).')
             else:
-                for i, msg in enumerate(automessages):
-                    await message.channel.send(f"{i}: {msg}")
+                list_str = "\n".join(f"({i}) [{tdelta}]: {content}" for i, (tdelta, content, _) in enumerate(automessages))
+                await message.channel.send(f"Currently stored messages:\n{list_str}")
 
         else:
             await message.channel.send(f'Unrecognized command: {command}')
