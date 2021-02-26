@@ -161,6 +161,9 @@ class GuildChannel:
         The position in the channel list. This is a number that starts at 0.
         e.g. the top channel is position 0.
     """
+
+    name: str
+
     __slots__ = ...
     def __str__(self) -> str:
         ...

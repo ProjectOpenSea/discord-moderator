@@ -1,9 +1,11 @@
 import argparse
 import asyncio
 import os
-from typing import Callable, Dict
+import shlex
+from typing import Callable, Dict, cast
 
 import discord
+from discord.abc import Messageable
 from discord.member import Member
 from discord.message import Message
 
@@ -40,7 +42,7 @@ async def on_message(message: Message) -> None:
     ):
         return
 
-    [command, *arguments] = message.content.strip().split()
+    [command, *arguments] = shlex.split(message.content.strip())
 
     try:
         if command == '!ban-all':
@@ -48,18 +50,31 @@ async def on_message(message: Message) -> None:
             parser.add_argument('name', help='the name to match')
             parser.add_argument(f"--{CONFIRMATION}", action="store_true", help='actually execute the bans')
             args = vars(parser.parse_args(arguments))
-            matched_members = [m for m in guild.members if m.name == args["name"]]
-            if args[CONFIRMATION]:
+            name: str = args["name"]
+            is_confirmed: bool = args[CONFIRMATION]
+            matched_members = [m for m in guild.members if m.name == name]
+            if is_confirmed:
                 await message.channel.send(f'Banning {len(matched_members)} user(s)...')
                 await asyncio.gather(*[guild.ban(m, delete_message_days=7) for m in matched_members])
                 await message.channel.send(f'Banned {len(matched_members)} user(s).')
             else:
                 await message.channel.send(f'Would ban {len(matched_members)} user(s).')
 
-        if command == '!auto-message':
-            pass
-    except Exception as error:
-        print(error)
+        if command == '!automessage':
+            parser = argparse.ArgumentParser(description='Automatically post messages.')
+            parser.add_argument('message', nargs="+", help='the content of the message')
+            parser.add_argument('--channel', required=True, help='the channel into which the message will be posted')
+            args = vars(parser.parse_args(arguments))
+            channel_name: str = args["channel"]
+            content: str = " ".join(args["message"])
+            for channel in guild.channels:
+                if channel.name == channel_name:
+                    await cast(Messageable, channel).send(content)
+                    return
+            await message.channel.send(f'No such channel found: {channel_name}')
+
+    except:
+        pass
 
 
 client.run(BOT_TOKEN)
