@@ -2,6 +2,7 @@ import argparse
 import asyncio
 from asyncio.tasks import Task
 import os
+import re
 import shlex
 from datetime import timedelta
 from typing import List, NoReturn, Optional, Set, cast
@@ -55,9 +56,8 @@ async def on_message(message: Message) -> None:
         not is_admin(member)
         or not message.content.startswith('!')
     ):
-        words = message.content.split()
         for auto_message in auto_messages:
-            if auto_message.keywords and any(word in auto_message.keywords for word in words):
+            if auto_message.keywords and any(re.search(f"\\b{keyword}\\b", message.content) for keyword in auto_message.keywords):
                 await message.channel.send(auto_message.content)
         return
 
