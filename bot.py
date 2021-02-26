@@ -121,7 +121,7 @@ async def on_message(message: Message) -> None:
         if command == '!manage-messages':
             parser = argparse.ArgumentParser(prog="!manage-messages", description='Manage automatic messages.', add_help=False)
             parser.add_argument('--list', action="store_true", help='list all messages')
-            parser.add_argument('--delete', type=int, help='the content of the message')
+            parser.add_argument('--delete', type=int, help='which message to delete')
             args = vars(parser.parse_args(arguments))
             is_list = args["list"]
             delete_id = args["delete"]
