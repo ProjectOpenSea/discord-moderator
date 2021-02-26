@@ -4,7 +4,7 @@ from asyncio.tasks import Task
 import os
 import shlex
 from datetime import timedelta
-from typing import List, NoReturn, Optional, cast
+from typing import List, NoReturn, Optional, Set, cast
 
 import discord
 from discord.abc import Messageable
@@ -19,7 +19,7 @@ client = discord.Client()
 
 
 class AutoMessage:
-    def __init__(self, content: str, *, interval: Optional[timedelta]=None, keywords: Optional[List[str]]=None, task: Optional[Task[NoReturn]]=None):
+    def __init__(self, content: str, *, interval: Optional[timedelta]=None, keywords: Optional[Set[str]]=None, task: Optional[Task[NoReturn]]=None):
         self.content = content
         self.interval = interval
         self.keywords = keywords
@@ -46,11 +46,19 @@ async def on_message(message: Message) -> None:
     if (
         not guild
         or not isinstance(member, Member)
-        or not is_admin(member)
         or not message.content
-        or not message.content.startswith('!')
         or member == client.user
     ):
+        return
+
+    if (
+        not is_admin(member)
+        or not message.content.startswith('!')
+    ):
+        words = message.content.split()
+        for auto_message in auto_messages:
+            if auto_message.keywords and any(word in auto_message.keywords for word in words):
+                await message.channel.send(auto_message.content)
         return
 
     [command, *arguments] = shlex.split(message.content.strip())
@@ -72,21 +80,28 @@ async def on_message(message: Message) -> None:
                 await message.channel.send(f'Would ban {len(matched_members)} user(s).')
 
         if command == '!message':
-            parser = argparse.ArgumentParser(prog="!message", description='Automatically post messages.')
+            parser = argparse.ArgumentParser(prog="!message", description='Automatically send messages.')
             parser.add_argument('message', nargs="+", help='the content of the message')
             parser.add_argument('--channel', required=True, help='the channel into which the message will be posted')
+            parser.add_argument('--keywords', help='comma-separated list of keywords to respond to')
             parser.add_argument('--seconds', type=int, default=0, help='period in seconds')
             parser.add_argument('--minutes', type=int, default=0, help='period in minutes')
             parser.add_argument('--hours', type=int, default=0, help='period in hours')
             parser.add_argument('--days', type=int, default=0, help='period in days')
             args = vars(parser.parse_args(arguments))
-            channel_name: str = args["channel"]
             content: str = " ".join(args["message"])
+            channel_name: str = args["channel"]
+            keywords: Optional[Set[str]] = args["keywords"] and set(args["keywords"].split(","))
             tdelta = timedelta(seconds=args["seconds"], minutes=args["minutes"], hours=args["hours"], days=args["days"])
             duration = tdelta.total_seconds()
+            if keywords:
+                auto_messages.append(AutoMessage(content, keywords=keywords))
+                await message.channel.send(f'Message set to automatically respond to these keywords: {", ".join(keywords)}')
+                return
             for channel in guild.channels:
                 if channel.name == channel_name:
                     await cast(Messageable, channel).send(content)
+                    await message.channel.send(f'Sent message to {channel_name}.')
                     if duration > 0:
                         async def run():
                             while True:
@@ -95,6 +110,7 @@ async def on_message(message: Message) -> None:
                         loop = asyncio.get_event_loop()
                         task = loop.create_task(run())
                         auto_messages.append(AutoMessage(content, interval=tdelta, task=task))
+                        await message.channel.send(f'Will send message to {channel_name} every {tdelta}.')
                     return
             await message.channel.send(f'No such channel found: {channel_name}')
 
@@ -109,7 +125,7 @@ async def on_message(message: Message) -> None:
                     auto_message.task.cancel()
                 await message.channel.send(f'Deleted message ({delete_id}).')
             else:
-                list_str = "\n".join(f"({i}) [{am.interval or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
+                list_str = "\n".join(f"({i}) [every {am.interval or 'n/a'}] [keywords: {am.keywords or 'n/a'}]: {am.content}" for i, am in enumerate(auto_messages))
                 await message.channel.send(f"Currently stored messages:\n{list_str}")
 
         else:
